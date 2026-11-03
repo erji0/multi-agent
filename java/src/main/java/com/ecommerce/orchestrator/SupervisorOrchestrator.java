@@ -13,6 +13,11 @@ import java.util.stream.Collectors;
 
 /**
  * Supervisor编排器 — 并行分发 + 聚合模式 (Java CompletableFuture实现)
+ * 该类实现了推荐系统的核心编排逻辑，通过并行执行多个Agent来提高性能
+ * 整体流程分为三个阶段：
+ * 1. 并行执行用户画像和商品召回
+ * 2. 并行执行商品重排和库存检查
+ * 3. 生成营销文案
  *
  *        ┌──────────────┐
  *        │  Supervisor   │
@@ -27,14 +32,26 @@ import java.util.stream.Collectors;
 @Service
 public class SupervisorOrchestrator {
 
+    // 日志记录器
     private static final Logger log = LoggerFactory.getLogger(SupervisorOrchestrator.class);
 
-    private final UserProfileAgent userProfileAgent;
-    private final ProductRecAgent productRecAgent;
-    private final MarketingCopyAgent marketingCopyAgent;
-    private final InventoryAgent inventoryAgent;
-    private final ABTestService abTestService;
 
+
+    // 依赖注入各个Agent服务
+    private final UserProfileAgent userProfileAgent;    // 用户画像代理
+    private final ProductRecAgent productRecAgent;       // 商品推荐代理
+    private final MarketingCopyAgent marketingCopyAgent; // 营销文案代理
+    private final InventoryAgent inventoryAgent;        // 库存代理
+    private final ABTestService abTestService;          // A/B测试服务
+
+    /**
+     * 构造函数，注入所有依赖的Agent服务
+     * @param userProfileAgent 用户画像代理
+     * @param productRecAgent 商品推荐代理
+     * @param marketingCopyAgent 营销文案代理
+     * @param inventoryAgent 库存代理
+     * @param abTestService A/B测试服务
+     */
     public SupervisorOrchestrator(
             UserProfileAgent userProfileAgent,
             ProductRecAgent productRecAgent,
@@ -48,13 +65,27 @@ public class SupervisorOrchestrator {
         this.abTestService = abTestService;
     }
 
+    /**
+     * 推荐系统主控制器方法，负责协调各个Agent完成推荐流程
+     * 整个推荐流程分为三个阶段：
+     * 1. 并行执行用户画像和商品召回
+     * 2. 并行执行商品重排和库存检查
+     * 3. 生成营销文案
+     * @param request 推荐请求，包含用户ID和需要推荐的商品数量等信息
+     * @return RecommendationResponse 推荐响应，包含推荐结果和相关元数据
+     */
     public RecommendationResponse recommend(RecommendationRequest request) {
+    // 生成唯一请求ID，用于追踪和日志记录
         String requestId = UUID.randomUUID().toString();
+    // 记录开始时间，用于计算总延迟
         long start = System.nanoTime();
+    // 存储各个Agent执行结果的Map
         Map<String, AgentResult> agentResults = new HashMap<>();
 
+    // 记录开始处理请求的日志
         log.info("[Supervisor] start request={} user={}", requestId, request.getUserId());
 
+    // A/B测试分组，确定用户属于哪个实验组
         String experimentGroup = abTestService.assign(request.getUserId()).getOrDefault("group", "control").toString();
 
         // Phase 1: parallel — user profile + product recall

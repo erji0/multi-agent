@@ -1,6 +1,7 @@
 package com.ecommerce.config;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -8,7 +9,8 @@ import org.springframework.context.annotation.Configuration;
 public class LLMConfig {
 
     @Bean
-    public ChatClient.Builder chatClientBuilder(ChatClient.Builder builder) {
-        return builder;
+    public ChatClient ecommerceChatClient(ObjectProvider<ChatClient.Builder> builderProvider) {
+        ChatClient.Builder builder = builderProvider.getIfAvailable();
+        return builder == null ? null : builder.build();
     }
 }
